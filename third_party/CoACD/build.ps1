@@ -16,6 +16,23 @@ Write-Host "Resolved BuildType: $BuildType" -ForegroundColor Gray
 
 $PinnedCommit = "c7436bf"  # Pin to tested commit (CDT include path fix + unbundled 3rd party support)
 
+function Get-CMakeGeneratorArgs {
+    $vswhere = "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+    if (Test-Path $vswhere) {
+        $vs2022 = & $vswhere -products * -version "[17.0,18.0)" -property installationPath
+        if ($LASTEXITCODE -eq 0 -and $vs2022) {
+            return @("-G", "Visual Studio 17 2022", "-A", "x64")
+        }
+    }
+
+    if (Get-Command nmake.exe -ErrorAction SilentlyContinue) {
+        Write-Host "Visual Studio 2022 generator not found; using NMake Makefiles from the active developer environment." -ForegroundColor Yellow
+        return @("-G", "NMake Makefiles")
+    }
+
+    return @("-G", "Visual Studio 17 2022", "-A", "x64")
+}
+
 $RepoDir = "src"
 if (-not (Test-Path $RepoDir)) {
     Write-Host "Cloning CoACD (pinned: $PinnedCommit)..." -ForegroundColor Gray
@@ -47,10 +64,10 @@ Write-Host "Configuring CoACD..." -ForegroundColor Gray
 # Note: Unreal uses /MD (Dynamic Runtime). 
 # We need to ensure CoACD and its deps are built with /MD.
 # Usually this is default in CMake for MSVC if not specified otherwise.
-$cmakeArgs = @(
+$cmakeArgs = @()
+$cmakeArgs += Get-CMakeGeneratorArgs
+$cmakeArgs += @(
     "..",
-    "-G", "Visual Studio 17 2022",
-    "-A", "x64",
     "-DCMAKE_INSTALL_PREFIX=$InstallDir",
     "-DCMAKE_BUILD_TYPE=$BuildType",
     "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$($BuildType.Replace('Release', '').Replace('Debug', 'Debug'))DLL",

@@ -25,6 +25,7 @@
 #include "Misc/MessageDialog.h"
 #include "Utils/URLabLogging.h"
 #include "Interfaces/IPluginManager.h"
+#include "HAL/FileManager.h"
 
 #if WITH_EDITOR
 #include "AssetToolsModule.h"
@@ -37,15 +38,44 @@ void FURLabModule::StartupModule()
     FString PluginDir = IPluginManager::Get().FindPlugin("UnrealRoboticsLab")->GetBaseDir();
     FString InstallDir = FPaths::Combine(PluginDir, TEXT("third_party/install"));
 
+    auto ResolveDependencyDLLPath = [&](const FString& LibraryName, const FString& SubDir) -> FString {
+        FString DLLPath = FPaths::Combine(InstallDir, SubDir, TEXT("bin"), LibraryName);
+        if (FPaths::FileExists(DLLPath))
+        {
+            return DLLPath;
+        }
+
+        return FPaths::Combine(FPlatformProcess::GetModulesDirectory(), LibraryName);
+    };
+
+    auto ResolveMatchingDLLPath = [&](const FString& Pattern, const FString& SubDir) -> FString {
+        const FString PluginBinDir = FPaths::Combine(InstallDir, SubDir, TEXT("bin"));
+        TArray<FString> FoundFiles;
+        if (IFileManager::Get().DirectoryExists(*PluginBinDir))
+        {
+            IFileManager::Get().FindFiles(FoundFiles, *(PluginBinDir / Pattern), true, false);
+            FoundFiles.Sort();
+            if (FoundFiles.Num() > 0)
+            {
+                return FPaths::Combine(PluginBinDir, FoundFiles.Last());
+            }
+        }
+
+        const FString ModulesDir = FPlatformProcess::GetModulesDirectory();
+        FoundFiles.Reset();
+        IFileManager::Get().FindFiles(FoundFiles, *(ModulesDir / Pattern), true, false);
+        FoundFiles.Sort();
+        if (FoundFiles.Num() > 0)
+        {
+            return FPaths::Combine(ModulesDir, FoundFiles.Last());
+        }
+
+        return FString();
+    };
+
     // Function to load a DLL and log success/failure
     auto LoadDependencyDLL = [&](const FString& LibraryName, const FString& SubDir) {
-        // Try plugin third-party path first (editor / development)
-        FString DLLPath = FPaths::Combine(InstallDir, SubDir, TEXT("bin"), LibraryName);
-        if (!FPaths::FileExists(DLLPath))
-        {
-            // Packaged build: DLLs staged next to the executable
-            DLLPath = FPaths::Combine(FPlatformProcess::GetModulesDirectory(), LibraryName);
-        }
+        const FString DLLPath = ResolveDependencyDLLPath(LibraryName, SubDir);
         if (FPaths::FileExists(DLLPath)) {
             void* Handle = FPlatformProcess::GetDllHandle(*DLLPath);
             if (Handle) {
@@ -60,13 +90,32 @@ void FURLabModule::StartupModule()
         return false;
     };
 
+    auto LoadMatchingDependencyDLL = [&](const FString& Pattern, const FString& FriendlyName, const FString& SubDir) {
+        const FString DLLPath = ResolveMatchingDLLPath(Pattern, SubDir);
+        if (!DLLPath.IsEmpty() && FPaths::FileExists(DLLPath))
+        {
+            void* Handle = FPlatformProcess::GetDllHandle(*DLLPath);
+            if (Handle)
+            {
+                UE_LOG(LogURLab, Log, TEXT("Loaded %s from %s"), *FriendlyName, *DLLPath);
+                return true;
+            }
+
+            UE_LOG(LogURLab, Error, TEXT("Failed to load %s from %s"), *FriendlyName, *DLLPath);
+            return false;
+        }
+
+        UE_LOG(LogURLab, Error, TEXT("%s not found with pattern %s (searched plugin dir + binary dir)"), *FriendlyName, *Pattern);
+        return false;
+    };
+
     // Load MuJoCo and its decoders
     LoadDependencyDLL(TEXT("mujoco.dll"), TEXT("MuJoCo"));
     LoadDependencyDLL(TEXT("obj_decoder.dll"), TEXT("MuJoCo"));
     LoadDependencyDLL(TEXT("stl_decoder.dll"), TEXT("MuJoCo"));
 
     // Load ZMQ
-    LoadDependencyDLL(TEXT("libzmq-v143-mt-4_3_6.dll"), TEXT("libzmq"));
+    LoadMatchingDependencyDLL(TEXT("libzmq-*-mt-4_3_6.dll"), TEXT("libzmq"), TEXT("libzmq"));
 
     // Load CoACD (Shared library)
     LoadDependencyDLL(TEXT("lib_coacd.dll"), TEXT("CoACD"));
