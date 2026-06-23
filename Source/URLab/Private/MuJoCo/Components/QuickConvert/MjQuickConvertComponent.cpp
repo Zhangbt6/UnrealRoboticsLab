@@ -170,22 +170,58 @@ void UMjQuickConvertComponent::Setup(mjSpec* spec, mjVFS* vfs) {
             }
         }
         
+        struct FPreparedMeshAssets
+        {
+            TArray<FString> CollisionMeshNames;
+            TArray<FString> VisualMeshNames;
+        };
+
         TInlineComponentArray<UActorComponent*, 30> Components;
         m_actor->GetComponents(UStaticMeshComponent::StaticClass(), Components);
 
-        int MeshIndex = 0;
+        TArray<FPreparedMeshAssets> PreparedMeshes;
+        int32 TotalCollisionGeomCount = 0;
         for (auto&& Comp : Components) {
             UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(Comp);
             if (!SMC || !SMC->GetStaticMesh()) continue;
 
-             
-             FString AssetName = SMC->GetStaticMesh()->GetName();
-             
-             TArray<FString> MjAssetNames = wrapper->PrepareMeshForMuJoCo(SMC, ComplexMeshRequired, CoACDThreshold);
+             FPreparedMeshAssets Prepared;
+             Prepared.CollisionMeshNames = wrapper->PrepareMeshForMuJoCo(SMC, ComplexMeshRequired, CoACDThreshold);
+             if (ComplexMeshRequired)
+             {
+                 Prepared.VisualMeshNames = wrapper->PrepareMeshForMuJoCo(SMC, false);
+             }
+             TotalCollisionGeomCount += Prepared.CollisionMeshNames.Num();
+             PreparedMeshes.Add(MoveTemp(Prepared));
+        }
+
+        const float PerCollisionGeomMassKg =
+            TotalMassKg > 0.0f && TotalCollisionGeomCount > 0
+                ? TotalMassKg / static_cast<float>(TotalCollisionGeomCount)
+                : 0.0f;
+
+        auto ApplyCollisionGeomPhysics = [this, PerCollisionGeomMassKg](UMjGeom* Geom)
+        {
+            Geom->bOverride_Friction = true;
+            Geom->Friction = { (float)friction.X, (float)friction.Y, (float)friction.Z };
+            Geom->bOverride_SolRef = true;
+            Geom->SolRef = { (float)solref.X, (float)solref.Y };
+            Geom->bOverride_SolImp = true;
+            Geom->SolImp = { (float)solimp.X, (float)solimp.Y, (float)solimp.Z };
+            if (PerCollisionGeomMassKg > 0.0f)
+            {
+                Geom->bOverride_Mass = true;
+                Geom->Mass = PerCollisionGeomMassKg;
+            }
+        };
+
+        int MeshIndex = 0;
+        for (const FPreparedMeshAssets& Prepared : PreparedMeshes) {
+             const TArray<FString>& MjAssetNames = Prepared.CollisionMeshNames;
 
              if (ComplexMeshRequired)
              {
-                 TArray<FString> VisualMeshNames = wrapper->PrepareMeshForMuJoCo(SMC, false);
+                 const TArray<FString>& VisualMeshNames = Prepared.VisualMeshNames;
                  if (VisualMeshNames.Num() > 0)
                  {
                      FString VisualGeomName = FString::Printf(TEXT("Geom_%d_visual"), MeshIndex);
@@ -221,12 +257,7 @@ void UMjQuickConvertComponent::Setup(mjSpec* spec, mjVFS* vfs) {
                          Geom->bOverride_Group = true;
                          Geom->Group = 3;
 
-                         Geom->bOverride_Friction = true;
-                         Geom->Friction = { (float)friction.X, (float)friction.Y, (float)friction.Z };
-                         Geom->bOverride_SolRef = true;
-                         Geom->SolRef = { (float)solref.X, (float)solref.Y };
-                         Geom->bOverride_SolImp = true;
-                         Geom->SolImp = { (float)solimp.X, (float)solimp.Y, (float)solimp.Z };
+                         ApplyCollisionGeomPhysics(Geom);
                      }
                  }
              }
@@ -245,12 +276,7 @@ void UMjQuickConvertComponent::Setup(mjSpec* spec, mjVFS* vfs) {
                          Geom->bOverride_Type = true;
                          Geom->MeshName = MjAssetName;
 
-                         Geom->bOverride_Friction = true;
-                         Geom->Friction = { (float)friction.X, (float)friction.Y, (float)friction.Z };
-                         Geom->bOverride_SolRef = true;
-                         Geom->SolRef = { (float)solref.X, (float)solref.Y };
-                         Geom->bOverride_SolImp = true;
-                         Geom->SolImp = { (float)solimp.X, (float)solimp.Y, (float)solimp.Z };
+                         ApplyCollisionGeomPhysics(Geom);
                      }
                  }
              }

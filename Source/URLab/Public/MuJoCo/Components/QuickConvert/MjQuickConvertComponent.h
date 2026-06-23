@@ -97,6 +97,10 @@ public:
     UPROPERTY(EditAnywhere, Category="MuJoCo|Physics")
     FVector3d friction = {1.0, 1, 1};
 
+    /** @brief Optional explicit total mass in kg. When > 0, split across collision geoms created by this component. */
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="MuJoCo|Physics", meta=(ClampMin="0.0"))
+    float TotalMassKg = 0.0f;
+
     /** @brief Constraint solver reference parameters (timeconst, dampratio). Applied to all geoms. */
     UPROPERTY(EditAnywhere, Category="MuJoCo|Physics")
     FVector3d solref = {0.02, 1.0, 0.0};

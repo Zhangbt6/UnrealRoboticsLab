@@ -56,7 +56,14 @@ void UMjInputHandler::ProcessHotkeys(APlayerController* PC)
     AAMjManager* Manager = Cast<AAMjManager>(GetOwner());
     if (!Manager) return;
 
-    // Keys 1-5: Debug toggles (dispatched to DebugVisualizer)
+    const bool bURLabHotkeyModifierDown =
+        PC->IsInputKeyDown(EKeys::LeftControl) || PC->IsInputKeyDown(EKeys::RightControl);
+    if (!bURLabHotkeyModifierDown)
+    {
+        return;
+    }
+
+    // Ctrl + keys 1-5: Debug toggles (dispatched to DebugVisualizer)
     if (PC->WasInputKeyJustPressed(EKeys::One))
     {
         if (Manager->DebugVisualizer) Manager->DebugVisualizer->ToggleDebugContacts();
@@ -78,7 +85,7 @@ void UMjInputHandler::ProcessHotkeys(APlayerController* PC)
         if (Manager->DebugVisualizer) Manager->DebugVisualizer->ToggleQuickConvertCollisions();
     }
 
-    // P: Pause/Resume
+    // Ctrl + P: Pause/Resume
     if (PC->WasInputKeyJustPressed(EKeys::P))
     {
         if (Manager->PhysicsEngine)
@@ -88,14 +95,14 @@ void UMjInputHandler::ProcessHotkeys(APlayerController* PC)
         }
     }
 
-    // R: Reset
+    // Ctrl + R: Reset
     if (PC->WasInputKeyJustPressed(EKeys::R))
     {
         Manager->ResetSimulation();
         UE_LOG(LogURLab, Log, TEXT("Simulation: RESET"));
     }
 
-    // O: Toggle orbit/keyframe cameras
+    // Ctrl + O: Toggle orbit/keyframe cameras
     if (PC->WasInputKeyJustPressed(EKeys::O))
     {
         UWorld* World = GetWorld();
@@ -125,7 +132,7 @@ void UMjInputHandler::ProcessHotkeys(APlayerController* PC)
         }
     }
 
-    // F: Fire impulse launchers
+    // Ctrl + F: Fire impulse launchers
     if (PC->WasInputKeyJustPressed(EKeys::F))
     {
         UWorld* World = GetWorld();
