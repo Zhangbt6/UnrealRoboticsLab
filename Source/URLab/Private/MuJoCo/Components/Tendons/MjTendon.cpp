@@ -245,8 +245,12 @@ void UMjTendon::RegisterToSpec(FMujocoSpecWrapper& Wrapper, mjsBody* ParentBody)
 
         case EMjTendonWrapType::Geom:
             {
-                const char* SideSiteStr = Wrap.SideSite.IsEmpty() ? "" : TCHAR_TO_UTF8(*Wrap.SideSite);
-                mjsWrap* W = mjs_wrapGeom(Tendon, TCHAR_TO_UTF8(*Wrap.TargetName), SideSiteStr);
+                // UE 5.8 (-Wdangling): keep the UTF-8 conversion alive in a named holder;
+                // TCHAR_TO_UTF8 returns a temporary that would be destroyed before mjs_wrapGeom uses it.
+                auto SideSiteConv = StringCast<UTF8CHAR>(*Wrap.SideSite);
+                const char* SideSiteStr = Wrap.SideSite.IsEmpty() ? "" : (const char*)SideSiteConv.Get();
+                auto TargetNameConv = StringCast<UTF8CHAR>(*Wrap.TargetName);
+                mjsWrap* W = mjs_wrapGeom(Tendon, (const char*)TargetNameConv.Get(), SideSiteStr);
                 if (!W)
                 {
                     UE_LOG(LogURLabImport, Warning, TEXT("[MjTendon] mjs_wrapGeom failed for geom '%s' in tendon '%s'"),

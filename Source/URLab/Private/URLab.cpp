@@ -90,6 +90,7 @@ void FURLabModule::StartupModule()
         return false;
     };
 
+#if PLATFORM_WINDOWS
     auto LoadMatchingDependencyDLL = [&](const FString& Pattern, const FString& FriendlyName, const FString& SubDir) {
         const FString DLLPath = ResolveMatchingDLLPath(Pattern, SubDir);
         if (!DLLPath.IsEmpty() && FPaths::FileExists(DLLPath))
@@ -109,6 +110,7 @@ void FURLabModule::StartupModule()
         return false;
     };
 
+
     // Load MuJoCo and its decoders
     LoadDependencyDLL(TEXT("mujoco.dll"), TEXT("MuJoCo"));
     LoadDependencyDLL(TEXT("obj_decoder.dll"), TEXT("MuJoCo"));
@@ -119,6 +121,27 @@ void FURLabModule::StartupModule()
 
     // Load CoACD (Shared library)
     LoadDependencyDLL(TEXT("lib_coacd.dll"), TEXT("CoACD"));
+#elif PLATFORM_LINUX
+    // On Linux, shared libraries are linked directly; runtime-load only the ones
+    // that are not statically resolved (i.e. the .so files in the lib/ directories).
+    auto LoadLinuxSO = [&](const FString& LibraryName, const FString& SubDir) {
+        FString SOPath = FPaths::Combine(InstallDir, SubDir, TEXT("lib"), LibraryName);
+        if (!FPaths::FileExists(SOPath))
+            SOPath = FPaths::Combine(InstallDir, TEXT("lib"), LibraryName);
+        if (FPaths::FileExists(SOPath)) {
+            void* Handle = FPlatformProcess::GetDllHandle(*SOPath);
+            if (Handle) {
+                UE_LOG(LogURLab, Log, TEXT("Loaded %s"), *LibraryName);
+            } else {
+                UE_LOG(LogURLab, Warning, TEXT("dlopen failed for %s"), *LibraryName);
+            }
+        }
+    };
+
+    LoadLinuxSO(TEXT("libmujoco.so.3.7.0"), TEXT("MuJoCo"));
+    LoadLinuxSO(TEXT("lib_coacd.so"), TEXT("CoACD"));
+    LoadLinuxSO(TEXT("libzmq.so"), TEXT("libzmq"));
+#endif
 
     // Some CoACD dependencies like TBB or runtimes might be in CoACD/bin
     // They should be loaded automatically if in search path, but we can verify here if needed.

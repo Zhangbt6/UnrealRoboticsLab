@@ -159,7 +159,10 @@ void FMujocoSpecWrapper::AddDefault(UMjDefault* DefaultComp)
 {
     if (!DefaultComp) return;
 
-    const char* ClassName = DefaultComp->ClassName.IsEmpty() ? nullptr : TCHAR_TO_UTF8(*DefaultComp->ClassName);
+    // UE 5.8 (-Wdangling): keep the UTF-8 conversion alive in a named holder for the
+    // whole function; TCHAR_TO_UTF8 returns a temporary destroyed at end of statement.
+    auto ClassNameConv = StringCast<UTF8CHAR>(*DefaultComp->ClassName);
+    const char* ClassName = DefaultComp->ClassName.IsEmpty() ? nullptr : (const char*)ClassNameConv.Get();
     
     mjsDefault* parentDef = nullptr;
     if (!DefaultComp->ParentClassName.IsEmpty())

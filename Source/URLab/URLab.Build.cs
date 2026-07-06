@@ -12,7 +12,7 @@ public class URLab : ModuleRules
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		//bUseRTTI = true;  // Required for type info
 		//bEnableExceptions = true;
-
+		UndefinedIdentifierWarningLevel = WarningLevel.Off;
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
@@ -88,6 +88,9 @@ public class URLab : ModuleRules
 			PublicDefinitions.Add("USE_DECLSPEC=1");
 			PublicDefinitions.Add("__linux__=1");
 			PublicDefinitions.Add("__unix__=1");
+			// Prevent __declspec in third-party headers when _WIN32 is set by UBT
+			PublicDefinitions.Add("MJ_STATIC=1");
+			PublicDefinitions.Add("ZMQ_STATIC=1");
 		}
 
 
@@ -155,7 +158,7 @@ public class URLab : ModuleRules
 				{
 					PublicAdditionalLibraries.Add(LibFile);
 					RuntimeDependencies.Add(LibFile);
-					PublicDelayLoadDLLs.Add(Path.GetFileName(LibFile));
+					// Do not use PublicDelayLoadDLLs on Linux — symbols must be resolved at link time.
 				}
 			}
 
