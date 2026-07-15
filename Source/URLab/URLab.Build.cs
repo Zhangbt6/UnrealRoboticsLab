@@ -12,7 +12,7 @@ public class URLab : ModuleRules
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 		//bUseRTTI = true;  // Required for type info
 		//bEnableExceptions = true;
-		UndefinedIdentifierWarningLevel = WarningLevel.Off;
+		CppCompileWarningSettings.UndefinedIdentifierWarningLevel = WarningLevel.Off;
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
 			"Core",
@@ -78,17 +78,8 @@ public class URLab : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Linux)
 		{
-			// Ensure Unreal recognizes MuJoCo's export macros
-		}
-
-
-		if (Target.Platform == UnrealTargetPlatform.Linux)
-		{
-			PublicDefinitions.Add("_WIN32=0");
-			PublicDefinitions.Add("USE_DECLSPEC=1");
-			PublicDefinitions.Add("__linux__=1");
-			PublicDefinitions.Add("__unix__=1");
-			// Prevent __declspec in third-party headers when _WIN32 is set by UBT
+			// Keep _WIN32 undefined on Linux. Third-party headers use
+			// `defined(_WIN32)`, so defining it as 0 still selects Windows code.
 			PublicDefinitions.Add("MJ_STATIC=1");
 			PublicDefinitions.Add("ZMQ_STATIC=1");
 		}
@@ -169,7 +160,6 @@ public class URLab : ModuleRules
 				foreach (string BinFile in Directory.GetFiles(BinPath, "*.so", SearchOption.AllDirectories))
 				{
 					RuntimeDependencies.Add(BinFile);
-					PublicDelayLoadDLLs.Add(Path.GetFileName(BinFile));
 					PublicAdditionalLibraries.Add(BinFile);
 				}
 			}

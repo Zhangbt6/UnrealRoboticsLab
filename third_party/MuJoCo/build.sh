@@ -1,5 +1,11 @@
-#!/bin/bash
-INSTALL_DIR=${1:-"../install"}
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+INSTALL_DIR=${1:-"$SCRIPT_DIR/../install"}
+mkdir -p "$INSTALL_DIR"
+INSTALL_DIR="$(cd "$INSTALL_DIR" && pwd)"
 BUILD_TYPE=${2:-"Release"}
 PINNED_COMMIT="47264877"  # Pin to tested commit (MuJoCo 3.7.0 dev, polynomial stiffness/damping)
 
