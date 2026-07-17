@@ -122,25 +122,33 @@ void FURLabModule::StartupModule()
     // Load CoACD (Shared library)
     LoadDependencyDLL(TEXT("lib_coacd.dll"), TEXT("CoACD"));
 #elif PLATFORM_LINUX
-    // On Linux, shared libraries are linked directly; runtime-load only the ones
-    // that are not statically resolved (i.e. the .so files in the lib/ directories).
-    auto LoadLinuxSO = [&](const FString& LibraryName, const FString& SubDir) {
-        FString SOPath = FPaths::Combine(InstallDir, SubDir, TEXT("lib"), LibraryName);
-        if (!FPaths::FileExists(SOPath))
+    // Runtime-load MuJoCo before its decoder plugins so their libmujoco dependency
+    // resolves and their static registrations are available during model compile.
+    auto LoadLinuxSO = [&](const FString& LibraryName, const FString& SubDir, const FString& RelativeDir) {
+        FString SOPath = FPaths::Combine(InstallDir, SubDir, RelativeDir, LibraryName);
+        if (!FPaths::FileExists(SOPath) && RelativeDir == TEXT("lib"))
             SOPath = FPaths::Combine(InstallDir, TEXT("lib"), LibraryName);
-        if (FPaths::FileExists(SOPath)) {
-            void* Handle = FPlatformProcess::GetDllHandle(*SOPath);
-            if (Handle) {
-                UE_LOG(LogURLab, Log, TEXT("Loaded %s"), *LibraryName);
-            } else {
-                UE_LOG(LogURLab, Warning, TEXT("dlopen failed for %s"), *LibraryName);
-            }
+
+        if (!FPaths::FileExists(SOPath)) {
+            UE_LOG(LogURLab, Error, TEXT("%s not found at %s"), *LibraryName, *SOPath);
+            return false;
         }
+
+        void* Handle = FPlatformProcess::GetDllHandle(*SOPath);
+        if (Handle) {
+            UE_LOG(LogURLab, Log, TEXT("Loaded %s from %s"), *LibraryName, *SOPath);
+            return true;
+        }
+
+        UE_LOG(LogURLab, Error, TEXT("dlopen failed for %s at %s"), *LibraryName, *SOPath);
+        return false;
     };
 
-    LoadLinuxSO(TEXT("libmujoco.so.3.7.0"), TEXT("MuJoCo"));
-    LoadLinuxSO(TEXT("lib_coacd.so"), TEXT("CoACD"));
-    LoadLinuxSO(TEXT("libzmq.so"), TEXT("libzmq"));
+    LoadLinuxSO(TEXT("libmujoco.so.3.7.0"), TEXT("MuJoCo"), TEXT("lib"));
+    LoadLinuxSO(TEXT("libobj_decoder.so"), TEXT("MuJoCo"), TEXT("bin/mujoco_plugin"));
+    LoadLinuxSO(TEXT("libstl_decoder.so"), TEXT("MuJoCo"), TEXT("bin/mujoco_plugin"));
+    LoadLinuxSO(TEXT("lib_coacd.so"), TEXT("CoACD"), TEXT("lib"));
+    LoadLinuxSO(TEXT("libzmq.so"), TEXT("libzmq"), TEXT("lib"));
 #endif
 
     // Some CoACD dependencies like TBB or runtimes might be in CoACD/bin

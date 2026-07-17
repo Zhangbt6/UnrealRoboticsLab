@@ -3,9 +3,12 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
-INSTALL_DIR=${1:-"$SCRIPT_DIR/../install"}
+INSTALL_ROOT=${1:-"$SCRIPT_DIR/../install"}
+mkdir -p "$INSTALL_ROOT"
+INSTALL_ROOT="$(cd "$INSTALL_ROOT" && pwd)"
+INSTALL_DIR="$INSTALL_ROOT/CoACD"
+rm -rf "$INSTALL_DIR"
 mkdir -p "$INSTALL_DIR"
-INSTALL_DIR="$(cd "$INSTALL_DIR" && pwd)"
 BUILD_TYPE=${2:-"Release"}
 PINNED_COMMIT="c7436bf"  # Pin to tested commit (CDT include path fix + unbundled 3rd party support)
 
