@@ -49,7 +49,7 @@ URLab communicates with external systems over ZMQ. The companion package [**urla
 
 ## Requirements
 
-- **Unreal Engine 5.7+**
+- **Unreal Engine 5.8+**
 - **Windows** (Win64). Linux is experimental.
 - **MuJoCo 3.7+** -- bundled in `third_party/`, built from source.
 - **Visual Studio 2022** or compatible C++ toolchain.

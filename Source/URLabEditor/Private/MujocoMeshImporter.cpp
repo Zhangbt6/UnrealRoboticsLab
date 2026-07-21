@@ -158,7 +158,7 @@ UStaticMesh* UMujocoGenerationAction::AttemptMeshImport(const FString& SourcePat
         ImportUI->StaticMeshImportData->bBuildNanite = false; // Nanite requires clean geometry
 
         // Vertex welding - critical for fixing overlapping vertices that cause degenerate tangents
-        // Note: There's no direct bWeldVertices in UE 5.7, but bRemoveDegenerates handles this
+        // Note: There's no direct bWeldVertices in UE 5.8, but bRemoveDegenerates handles this
 
         // Apply UI to Factory
         FbxFactory->ImportUI = ImportUI;
