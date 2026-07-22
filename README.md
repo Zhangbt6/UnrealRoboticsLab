@@ -2,7 +2,7 @@
 [![arXiv](https://img.shields.io/badge/arXiv-2504.14135-b31b1b.svg)](https://arxiv.org/abs/2504.14135)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![MuJoCo](https://img.shields.io/badge/MuJoCo-3.7+-green.svg)](https://github.com/google-deepmind/mujoco)
-[![Unreal Engine](https://img.shields.io/badge/Unreal_Engine-5.7+-black.svg)](https://www.unrealengine.com)
+[![Unreal Engine](https://img.shields.io/badge/Unreal_Engine-5.8+-black.svg)](https://www.unrealengine.com)
 
 # URLab -- MuJoCo Physics in Unreal Engine
 
