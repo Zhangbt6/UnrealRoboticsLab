@@ -159,6 +159,56 @@ bool FMjThreadPauseResume::RunTest(const FString& Parameters)
 }
 
 // ============================================================================
+// URLab.Thread.CaptureSnapshotBarrier
+//   Verify capture ownership is exclusive and binds a stable step boundary.
+// ============================================================================
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMjThreadCaptureSnapshotBarrier,
+    "URLab.Thread.CaptureSnapshotBarrier",
+    EAutomationTestFlags::EditorContext | EAutomationTestFlags::ProductFilter)
+
+bool FMjThreadCaptureSnapshotBarrier::RunTest(const FString& Parameters)
+{
+    FMjUESession S;
+    if (!S.Init())
+    {
+        AddError(FString::Printf(TEXT("Init() failed: %s"), *S.LastError));
+        return false;
+    }
+
+    UMjPhysicsEngine* Engine = S.Manager->PhysicsEngine;
+    FMjCaptureSnapshotBarrierToken First;
+    TestTrue(TEXT("First capture barrier should be acquired"),
+        Engine->AcquireCaptureSnapshotBarrier(First));
+    TestTrue(TEXT("First token should be valid"), First.bValid);
+    TestTrue(TEXT("First snapshot id should be positive"), First.SnapshotId > 0);
+    TestEqual(TEXT("Initial physics step index should be zero"), First.PhysicsStepIndex, uint64(0));
+    TestEqual(TEXT("Atomic physics time should match the acquired snapshot"),
+        Engine->GetPhysicsSimTimeSeconds(), First.PhysicsSimTimeSeconds);
+
+    FMjCaptureSnapshotBarrierToken Duplicate;
+    TestFalse(TEXT("Capture barrier ownership should be exclusive"),
+        Engine->AcquireCaptureSnapshotBarrier(Duplicate));
+    Engine->ReleaseCaptureSnapshotBarrier(First);
+    TestFalse(TEXT("Released token should be invalidated"), First.bValid);
+
+    Engine->StepSync(5);
+    FMjCaptureSnapshotBarrierToken Second;
+    TestTrue(TEXT("Second capture barrier should be acquired"),
+        Engine->AcquireCaptureSnapshotBarrier(Second));
+    TestTrue(TEXT("Snapshot identity should increase"), Second.SnapshotId > First.SnapshotId);
+    TestEqual(TEXT("Synchronous steps should update the snapshot step index"),
+        Second.PhysicsStepIndex, uint64(5));
+    TestTrue(TEXT("MuJoCo simulation time should advance after steps"),
+        Second.PhysicsSimTimeSeconds > 0.0);
+    TestEqual(TEXT("Atomic physics time should advance with synchronous steps"),
+        Engine->GetPhysicsSimTimeSeconds(), Second.PhysicsSimTimeSeconds);
+    Engine->ReleaseCaptureSnapshotBarrier(Second);
+
+    S.Cleanup();
+    return true;
+}
+
+// ============================================================================
 // URLab.Thread.ModelIntegrity
 //   Verify model and data pointers are valid and that time advances after stepping
 // ============================================================================

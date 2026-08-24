@@ -36,6 +36,20 @@ class AMjHeightfieldActor;
 class UMjQuickConvertComponent;
 class UMjSimulationState;
 
+/**
+ * Acknowledged MuJoCo step-boundary snapshot held by the caller.
+ *
+ * While a valid token is held the asynchronous physics loop cannot mutate
+ * mjData. The owner must call ReleaseCaptureSnapshotBarrier exactly once.
+ */
+struct URLAB_API FMjCaptureSnapshotBarrierToken
+{
+    uint64 SnapshotId = 0;
+    uint64 PhysicsStepIndex = 0;
+    double PhysicsSimTimeSeconds = 0.0;
+    bool bValid = false;
+};
+
 // Shared enum: control source for articulations and physics engine
 UENUM(BlueprintType)
 enum class EControlSource : uint8
@@ -88,6 +102,18 @@ public:
 
     /** @brief Future for the async physics thread, used to wait for exit in EndPlay. */
     TFuture<void> AsyncPhysicsFuture;
+
+    /** @brief Monotonic identity for acknowledged capture snapshots. */
+    std::atomic<uint64> NextCaptureSnapshotId{0};
+
+    /** @brief Non-zero while one caller owns the capture snapshot barrier. */
+    std::atomic<uint64> ActiveCaptureSnapshotId{0};
+
+    /** @brief Number of completed MuJoCo physics steps since the latest reset. */
+    std::atomic<uint64> PhysicsStepIndex{0};
+
+    /** @brief Latest completed MuJoCo simulation time, safe for scheduling reads. */
+    std::atomic<double> PhysicsSimTimeSeconds{0.0};
 
     // --- Step Callbacks ---
 
@@ -197,6 +223,21 @@ public:
 
     /** @brief Gets the simulation timestep from Options (dt). */
     float GetTimestep() const;
+
+    /**
+     * @brief Blocks until the current MuJoCo step finishes, then freezes mjData.
+     * @return true when OutToken owns the barrier and must be released.
+     */
+    bool AcquireCaptureSnapshotBarrier(FMjCaptureSnapshotBarrierToken& OutToken);
+
+    /** @brief Releases a capture snapshot barrier previously acquired by this engine. */
+    void ReleaseCaptureSnapshotBarrier(FMjCaptureSnapshotBarrierToken& Token);
+
+    /** @brief Gets the number of completed physics steps since the latest reset. */
+    uint64 GetPhysicsStepIndex() const { return PhysicsStepIndex.load(); }
+
+    /** @brief Gets the latest completed MuJoCo simulation time without touching mjData. */
+    double GetPhysicsSimTimeSeconds() const { return PhysicsSimTimeSeconds.load(); }
 
     /** @brief Resets the MuJoCo simulation data to initial state. */
     void ResetSimulation();

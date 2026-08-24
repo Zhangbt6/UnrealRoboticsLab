@@ -209,6 +209,8 @@ void UMjPhysicsEngine::Compile()
     mj_step(m_model, m_data);
     mj_resetData(m_model, m_data);
     mj_forward(m_model, m_data);
+    PhysicsStepIndex.store(0);
+    PhysicsSimTimeSeconds.store(m_data ? m_data->time : 0.0);
 }
 
 void UMjPhysicsEngine::ApplyOptions()
@@ -252,6 +254,8 @@ void UMjPhysicsEngine::RunMujocoAsync()
                 {
                     mj_resetData(m_model, m_data);
                     mj_forward(m_model, m_data);
+                    PhysicsStepIndex.store(0);
+                    PhysicsSimTimeSeconds.store(m_data->time);
                     bPendingReset = false;
 
                     // Zero all actuator control values so stale commands
@@ -300,6 +304,8 @@ void UMjPhysicsEngine::RunMujocoAsync()
                         CustomStepHandler(m_model, m_data);
                     else
                         mj_step(m_model, m_data);
+                    PhysicsStepIndex.fetch_add(1);
+                    PhysicsSimTimeSeconds.store(m_data->time);
                 }
 
                 // Post-step callbacks (replaces direct ZmqComponent->PostStep calls)
@@ -368,6 +374,8 @@ void UMjPhysicsEngine::StepSync(int32 NumSteps)
     for (int32 i = 0; i < NumSteps; ++i)
     {
         mj_step(m_model, m_data);
+        PhysicsStepIndex.fetch_add(1);
+        PhysicsSimTimeSeconds.store(m_data->time);
     }
 
     bIsPaused = bWasPaused;
@@ -435,6 +443,48 @@ float UMjPhysicsEngine::GetSimTime() const
 float UMjPhysicsEngine::GetTimestep() const
 {
     return m_model ? (float)m_model->opt.timestep : 0.002f;
+}
+
+bool UMjPhysicsEngine::AcquireCaptureSnapshotBarrier(FMjCaptureSnapshotBarrierToken& OutToken)
+{
+    OutToken = FMjCaptureSnapshotBarrierToken{};
+    if (!IsInitialized() || bShouldStopTask.load())
+    {
+        return false;
+    }
+
+    const uint64 SnapshotId = NextCaptureSnapshotId.fetch_add(1) + 1;
+    uint64 ExpectedActiveId = 0;
+    if (!ActiveCaptureSnapshotId.compare_exchange_strong(ExpectedActiveId, SnapshotId))
+    {
+        return false;
+    }
+
+    CallbackMutex.Lock();
+    if (!IsInitialized() || bShouldStopTask.load())
+    {
+        CallbackMutex.Unlock();
+        ActiveCaptureSnapshotId.store(0);
+        return false;
+    }
+
+    OutToken.SnapshotId = SnapshotId;
+    OutToken.PhysicsStepIndex = PhysicsStepIndex.load();
+    OutToken.PhysicsSimTimeSeconds = PhysicsSimTimeSeconds.load();
+    OutToken.bValid = true;
+    return true;
+}
+
+void UMjPhysicsEngine::ReleaseCaptureSnapshotBarrier(FMjCaptureSnapshotBarrierToken& Token)
+{
+    if (!Token.bValid || ActiveCaptureSnapshotId.load() != Token.SnapshotId)
+    {
+        return;
+    }
+
+    CallbackMutex.Unlock();
+    ActiveCaptureSnapshotId.store(0);
+    Token.bValid = false;
 }
 
 void UMjPhysicsEngine::ResetSimulation()
