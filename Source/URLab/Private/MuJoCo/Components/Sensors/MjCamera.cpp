@@ -54,6 +54,7 @@ FCameraZmqWorker::~FCameraZmqWorker()
 
 bool FCameraZmqWorker::Init()
 {
+    if (!UMjNetworkManager::IsZmqEnabled()) return false;
     ZmqContext = zmq_ctx_new();
     ZmqPublisher = zmq_socket(ZmqContext, ZMQ_PUB);
     
@@ -211,6 +212,8 @@ void UMjCamera::BeginPlay()
 {
     Super::BeginPlay();
 
+    if (!UMjNetworkManager::IsZmqEnabled()) bEnableZmqBroadcast = false;
+
     if (AAMjManager* Manager = AAMjManager::GetManager())
     {
         if (Manager->NetworkManager) Manager->NetworkManager->RegisterCamera(this);
@@ -362,7 +365,7 @@ void UMjCamera::SetStreamingEnabled(bool bEnable)
             SetupRenderTarget();
         }
 
-        if (bEnableZmqBroadcast && !ZmqWorker)
+        if (UMjNetworkManager::IsZmqEnabled() && bEnableZmqBroadcast && !ZmqWorker)
         {
             AMjArticulation* Articulation = Cast<AMjArticulation>(GetOwner());
             FString Prefix = Articulation ? Articulation->GetName() : (GetOwner() ? GetOwner()->GetName() : TEXT("unknown"));

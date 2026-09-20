@@ -92,7 +92,12 @@ void AAMjManager::BeginPlay() {
     }
     Instance = this;
 
-    // Auto-create ZMQ components if none exist on this actor
+    // Optional networking is off by default, including for legacy levels.
+    const bool bEnableZmq = UMjNetworkManager::IsZmqEnabled();
+    UE_LOG(LogURLabNet, Log, TEXT("URLab ZMQ networking %s (startup opt-in: -URLabEnableZmq)"),
+        bEnableZmq ? TEXT("enabled") : TEXT("disabled by default"));
+    // Auto-create ZMQ components only when explicitly requested.
+    if (bEnableZmq)
     {
         TArray<UActorComponent*> ExistingZmq;
         GetComponents(UMjZmqComponent::StaticClass(), ExistingZmq);
@@ -136,7 +141,7 @@ void AAMjManager::BeginPlay() {
     if (NetworkManager) NetworkManager->UpdateCameraStreamingState();
 
     // Register ZMQ callbacks on PhysicsEngine
-    if (PhysicsEngine && NetworkManager)
+    if (PhysicsEngine && NetworkManager && bEnableZmq)
     {
         UE_LOG(LogURLab, Log, TEXT("[AAMjManager] Registering %d ZMQ callbacks on PhysicsEngine"), NetworkManager->ZmqComponents.Num());
         for (UMjZmqComponent* ZmqComp : NetworkManager->ZmqComponents)

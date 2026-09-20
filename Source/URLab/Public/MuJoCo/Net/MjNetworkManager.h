@@ -42,6 +42,9 @@ class URLAB_API UMjNetworkManager : public UActorComponent
 public:
     UMjNetworkManager();
 
+    /** AirSpark keeps optional ZMQ networking off unless -URLabEnableZmq is supplied at startup. */
+    static bool IsZmqEnabled();
+
     /** @brief List of ZMQ components discovered on the owner actor. */
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "MuJoCo|Network")
     TArray<UMjZmqComponent*> ZmqComponents;

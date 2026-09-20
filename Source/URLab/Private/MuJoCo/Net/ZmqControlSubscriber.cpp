@@ -41,7 +41,7 @@ UZmqControlSubscriber::UZmqControlSubscriber()
 
 void UZmqControlSubscriber::InitZmq()
 {
-	if (bIsInitialized) return;
+	if (bIsInitialized || !UMjNetworkManager::IsZmqEnabled()) return;
 
 	ZmqContext = zmq_ctx_new();
 

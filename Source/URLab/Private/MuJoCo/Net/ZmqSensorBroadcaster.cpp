@@ -24,6 +24,7 @@
 #include "zmq.h"
 #include "MuJoCo/Core/MjArticulation.h"
 #include "MuJoCo/Core/AMjManager.h"
+#include "MuJoCo/Net/MjNetworkManager.h"
 #include "MuJoCo/Components/MjComponent.h"
 #include "MuJoCo/Input/MjTwistController.h"
 #include "Serialization/BufferArchive.h"
@@ -49,7 +50,7 @@ void UZmqSensorBroadcaster::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void UZmqSensorBroadcaster::InitZmq()
 {
-	if (bIsInitialized) return;
+	if (bIsInitialized || !UMjNetworkManager::IsZmqEnabled()) return;
 
 	ZmqContext = zmq_ctx_new();
 	ZmqPublisher = zmq_socket(ZmqContext, ZMQ_PUB);
