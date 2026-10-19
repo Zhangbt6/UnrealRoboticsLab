@@ -417,14 +417,14 @@ public:
      * @param spec Pointer to the shared mjSpec.
      * @param vfs Pointer to the shared Virtual File System.
      */
-    void Setup(mjSpec* Spec, mjVFS* VFS);
+    virtual void Setup(mjSpec* Spec, mjVFS* VFS);
 
     /**
      * @brief Finalizes setup after compilation, resolving indices and bindings.
      * @param model Pointer to the compiled mjModel.
      * @param data Pointer to the active mjData.
      */
-    void PostSetup(mjModel* Model, mjData* Data);
+    virtual void PostSetup(mjModel* Model, mjData* Data);
     
     /** @brief draws debug lines for collision geoms. */
     void DrawDebugCollision();
